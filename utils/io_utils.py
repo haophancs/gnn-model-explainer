@@ -469,7 +469,11 @@ def read_graphfile(datadir, dataname, max_nodes=None, edge_labels=False):
                 ]
                 node_attrs.append(np.array(attrs))
     except IOError:
-        print("No node attributes")
+        try:
+            filename_node_attrs = prefix + "_node_features.pkl"
+            node_attrs = [row for row in pd.read_pickle(filename_node_attrs)]
+        except IOError:
+            print("No node attributes")
 
     label_has_zero = False
     filename_graphs = prefix + "_graph_labels.txt"

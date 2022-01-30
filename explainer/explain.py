@@ -6,6 +6,7 @@
 import math
 import time
 import os
+import json
 
 import matplotlib
 import matplotlib.colors as colors
@@ -24,7 +25,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 
 import sklearn.metrics as metrics
-from sklearn.metrics import roc_auc_score, recall_score, precision_score, roc_auc_score, precision_recall_curve
+from sklearn.metrics import roc_auc_score, recall_score, precision_score, accuracy_score, roc_auc_score, precision_recall_curve
 from sklearn.cluster import DBSCAN
 
 import pdb
@@ -334,21 +335,8 @@ class Explainer:
 
         plt.close()
 
-        auc_all = roc_auc_score(real_all, pred_all)
-        precision, recall, thresholds = precision_recall_curve(real_all, pred_all)
-
-        plt.switch_backend("agg")
-        plt.plot(recall, precision)
-        plt.savefig("log/pr/pr_" + self.args.dataset + "_" + model + ".png")
-
-        plt.close()
-
-        with open("log/pr/auc_" + self.args.dataset + "_" + model + ".txt", "w") as f:
-            f.write(
-                "dataset: {}, model: {}, auc: {}\n".format(
-                    self.args.dataset, "exp", str(auc_all)
-                )
-            )
+        with open("log/pr/stats_" + self.args.dataset + "_" + model + ".json", "w") as f:
+            f.write(f'auc_all: {str(auc_all)}\n')
 
         return masked_adjs
 
@@ -560,18 +548,21 @@ class Explainer:
             pred = adj[np.triu(adj) > 0]
             real = adj.copy()
             # pdb.set_trace()
-            if real[start][start + 1] > 0:
-                real[start][start + 1] = 10
-            if real[start + 1][start + 2] > 0:
-                real[start + 1][start + 2] = 10
-            if real[start + 2][start + 3] > 0:
-                real[start + 2][start + 3] = 10
-            if real[start + 3][start + 4] > 0:
-                real[start + 3][start + 4] = 10
-            if real[start + 4][start + 5] > 0:
-                real[start + 4][start + 5] = 10
-            if real[start][start + 5]:
-                real[start][start + 5] = 10
+            try:
+                if real[start][start + 1] > 0:
+                    real[start][start + 1] = 10
+                if real[start + 1][start + 2] > 0:
+                    real[start + 1][start + 2] = 10
+                if real[start + 2][start + 3] > 0:
+                    real[start + 2][start + 3] = 10
+                if real[start + 3][start + 4] > 0:
+                    real[start + 3][start + 4] = 10
+                if real[start + 4][start + 5] > 0:
+                    real[start + 4][start + 5] = 10
+                if real[start][start + 5]:
+                    real[start][start + 5] = 10
+            except:
+                pass
             real = real[np.triu(real) > 0]
             real[real != 10] = 0
             real[real == 10] = 1
