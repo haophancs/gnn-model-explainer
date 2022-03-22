@@ -1,12 +1,11 @@
 """ explain.py
 
-    Implementation of the explainer.
+    Implementation of the explainer. 
 """
 
 import math
 import time
 import os
-import json
 
 import matplotlib
 import matplotlib.colors as colors
@@ -25,7 +24,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 
 import sklearn.metrics as metrics
-from sklearn.metrics import roc_auc_score, recall_score, precision_score, accuracy_score, roc_auc_score, precision_recall_curve
+from sklearn.metrics import roc_auc_score, recall_score, precision_score, roc_auc_score, precision_recall_curve
 from sklearn.cluster import DBSCAN
 
 import pdb
@@ -70,7 +69,7 @@ class Explainer:
         self.writer = writer
         self.print_training = print_training
 
-
+    
     # Main method
     def explain(
         self, node_idx, graph_idx=0, graph_mode=False, unconstrained=False, model="exp"
@@ -91,7 +90,7 @@ class Explainer:
             )
             print("neigh graph idx: ", node_idx, node_idx_new)
             sub_label = np.expand_dims(sub_label, axis=0)
-
+        
         sub_adj = np.expand_dims(sub_adj, axis=0)
         sub_feat = np.expand_dims(sub_feat, axis=0)
 
@@ -117,7 +116,7 @@ class Explainer:
             graph_mode=self.graph_mode,
         )
         if self.args.gpu:
-            explainer = explainer.cuda()
+            explainer = explainer
 
         self.model.eval()
 
@@ -182,7 +181,7 @@ class Explainer:
                             print("adj att size: ", adj_atts.size())
                             adj_att = torch.sum(adj_atts[0], dim=2)
                             # adj_att = adj_att[neighbors][:, neighbors]
-                            node_adj_att = adj_att * adj.float().cuda()
+                            node_adj_att = adj_att * adj.float()
                             io_utils.log_matrix(
                                 self.writer, node_adj_att[0], "att/matrix", epoch
                             )
@@ -228,7 +227,7 @@ class Explainer:
         Explain nodes
 
         Args:
-            - node_indices  :  Indices of the nodes to be explained
+            - node_indices  :  Indices of the nodes to be explained 
             - args          :  Program arguments (mainly for logging paths)
             - graph_idx     :  Index of the graph to explain the nodes from (if multiple).
         """
@@ -320,11 +319,23 @@ class Explainer:
                 G,
                 "graph/{}_{}_{}".format(self.args.dataset, model, i),
                 identify_self=True,
-                args=self.args
             )
 
         pred_all = np.concatenate((pred_all), axis=0)
         real_all = np.concatenate((real_all), axis=0)
+
+        auc_all = roc_auc_score(real_all, pred_all)
+        precision, recall, thresholds = precision_recall_curve(real_all, pred_all)
+
+        res_dir = 'log/pr/'
+        if not os.path.exists(res_dir):
+            os.makedirs(res_dir)
+
+        plt.switch_backend("agg")
+        plt.plot(recall, precision)
+        plt.savefig("log/pr/pr_" + self.args.dataset + "_" + model + ".png")
+
+        plt.close()
 
         auc_all = roc_auc_score(real_all, pred_all)
         precision, recall, thresholds = precision_recall_curve(real_all, pred_all)
@@ -335,8 +346,12 @@ class Explainer:
 
         plt.close()
 
-        with open("log/pr/stats_" + self.args.dataset + "_" + model + ".json", "w") as f:
-            f.write(f'auc_all: {str(auc_all)}\n')
+        with open("log/pr/auc_" + self.args.dataset + "_" + model + ".txt", "w") as f:
+            f.write(
+                "dataset: {}, model: {}, auc: {}\n".format(
+                    self.args.dataset, "exp", str(auc_all)
+                )
+            )
 
         return masked_adjs
 
@@ -363,7 +378,6 @@ class Explainer:
                 "graph/graphidx_{}_label={}".format(graph_idx, label),
                 identify_self=False,
                 nodecolor="feat",
-                args=self.args
             )
             masked_adjs.append(masked_adj)
 
@@ -381,7 +395,6 @@ class Explainer:
                 "graph/graphidx_{}".format(graph_idx),
                 identify_self=False,
                 nodecolor="feat",
-                args=self.args
             )
 
         # plot cmap for graphs' node features
@@ -461,7 +474,7 @@ class Explainer:
         x = torch.tensor(self.feat, requires_grad=True, dtype=torch.float)
         label = torch.tensor(self.label, dtype=torch.long)
         if self.args.gpu:
-            adj, x, label = adj.cuda(), x.cuda(), label.cuda()
+            adj, x, label = adj, x, label
 
         preds, _ = self.model(x, adj)
         preds.retain_grad()
@@ -472,7 +485,7 @@ class Explainer:
         pred_idx = np.expand_dims(np.argmax(self.pred, axis=2), axis=2)
         pred_idx = torch.LongTensor(pred_idx)
         if self.args.gpu:
-            pred_idx = pred_idx.cuda()
+            pred_idx = pred_idx
         self.alpha = self.preds_grad
 
 
@@ -491,7 +504,7 @@ class Explainer:
     def align(
         self, ref_feat, ref_adj, ref_node_idx, curr_feat, curr_adj, curr_node_idx, args
     ):
-        """ Tries to find an alignment between two graphs.
+        """ Tries to find an alignment between two graphs. 
         """
         ref_adj = torch.FloatTensor(ref_adj)
         curr_adj = torch.FloatTensor(curr_adj)
@@ -548,21 +561,18 @@ class Explainer:
             pred = adj[np.triu(adj) > 0]
             real = adj.copy()
             # pdb.set_trace()
-            try:
-                if real[start][start + 1] > 0:
-                    real[start][start + 1] = 10
-                if real[start + 1][start + 2] > 0:
-                    real[start + 1][start + 2] = 10
-                if real[start + 2][start + 3] > 0:
-                    real[start + 2][start + 3] = 10
-                if real[start + 3][start + 4] > 0:
-                    real[start + 3][start + 4] = 10
-                if real[start + 4][start + 5] > 0:
-                    real[start + 4][start + 5] = 10
-                if real[start][start + 5]:
-                    real[start][start + 5] = 10
-            except:
-                pass
+            if real[start][start + 1] > 0:
+                real[start][start + 1] = 10
+            if real[start + 1][start + 2] > 0:
+                real[start + 1][start + 2] = 10
+            if real[start + 2][start + 3] > 0:
+                real[start + 2][start + 3] = 10
+            if real[start + 3][start + 4] > 0:
+                real[start + 3][start + 4] = 10
+            if real[start + 4][start + 5] > 0:
+                real[start + 4][start + 5] = 10
+            if real[start][start + 5]:
+                real[start][start + 5] = 10
             real = real[np.triu(real) > 0]
             real[real != 10] = 0
             real[real == 10] = 1
@@ -608,7 +618,7 @@ class ExplainModule(nn.Module):
         # For masking diagonal entries
         self.diag_mask = torch.ones(num_nodes, num_nodes) - torch.eye(num_nodes)
         if args.gpu:
-            self.diag_mask = self.diag_mask.cuda()
+            self.diag_mask = self.diag_mask
 
         self.scheduler, self.optimizer = train_utils.build_optimizer(args, params)
 
@@ -660,7 +670,7 @@ class ExplainModule(nn.Module):
         elif self.mask_act == "ReLU":
             sym_mask = nn.ReLU()(self.mask)
         sym_mask = (sym_mask + sym_mask.t()) / 2
-        adj = self.adj.cuda() if self.args.gpu else self.adj
+        adj = self.adj if self.args.gpu else self.adj
         masked_adj = adj * sym_mask
         if self.args.mask_bias:
             bias = (self.mask_bias + self.mask_bias.t()) / 2
@@ -674,7 +684,7 @@ class ExplainModule(nn.Module):
         return mask_sum / adj_sum
 
     def forward(self, node_idx, unconstrained=False, mask_features=True, marginalize=False):
-        x = self.x.cuda() if self.args.gpu else self.x
+        x = self.x if self.args.gpu else self.x
 
         if unconstrained:
             sym_mask = torch.sigmoid(self.mask) if self.use_sigmoid else self.mask
@@ -713,9 +723,9 @@ class ExplainModule(nn.Module):
             self.adj.grad.zero_()
             self.x.grad.zero_()
         if self.args.gpu:
-            adj = self.adj.cuda()
-            x = self.x.cuda()
-            label = self.label.cuda()
+            adj = self.adj
+            x = self.x
+            label = self.label
         else:
             x, adj = self.x, self.adj
         ypred, _ = self.model(x, adj)
@@ -773,8 +783,8 @@ class ExplainModule(nn.Module):
         L = D - m_adj
         pred_label_t = torch.tensor(pred_label, dtype=torch.float)
         if self.args.gpu:
-            pred_label_t = pred_label_t.cuda()
-            L = L.cuda()
+            pred_label_t = pred_label_t
+            L = L
         if self.graph_mode:
             lap_loss = 0
         else:
@@ -789,7 +799,7 @@ class ExplainModule(nn.Module):
         # adj_grad = adj_grad[self.graph_idx]
         # x_grad = x_grad[self.graph_idx]
         # if self.args.gpu:
-        #    adj_grad = adj_grad.cuda()
+        #    adj_grad = adj_grad
         # grad_loss = self.coeffs['grad'] * -torch.mean(torch.abs(adj_grad) * mask)
 
         # feat
@@ -797,6 +807,13 @@ class ExplainModule(nn.Module):
         # grad_feat_loss = self.coeffs['featgrad'] * -torch.mean(x_grad_sum * mask)
 
         loss = pred_loss + size_loss + lap_loss + mask_ent_loss + feat_size_loss
+        # loss = pred_loss + size_loss + lap_loss + mask_ent_loss
+        # loss = pred_loss + size_loss + lap_loss + feat_size_loss
+        # loss = pred_loss + size_loss + mask_ent_loss + feat_size_loss
+        # loss = pred_loss + lap_loss + mask_ent_loss + feat_size_loss
+        # loss = size_loss + lap_loss + mask_ent_loss + feat_size_loss
+        # loss = mask_ent_loss
+        
         if self.writer is not None:
             self.writer.add_scalar("optimization/size_loss", size_loss, epoch)
             self.writer.add_scalar("optimization/feat_size_loss", feat_size_loss, epoch)

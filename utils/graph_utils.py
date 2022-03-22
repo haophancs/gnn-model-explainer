@@ -148,7 +148,7 @@ def neighborhoods(adj, n_hops, use_cuda):
     """Returns the n_hops degree adjacency matrix adj."""
     adj = torch.tensor(adj, dtype=torch.float)
     if use_cuda:
-        adj = adj.cuda()
+        adj = adj
     hop_adj = power_adj = adj
     for i in range(n_hops - 1):
         power_adj = power_adj @ adj

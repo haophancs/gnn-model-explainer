@@ -55,7 +55,7 @@ def prepare_data(graphs, args, test_graphs=None, max_nodes=0):
     else:
         train_idx = int(len(graphs) * args.train_ratio)
         train_graphs = graphs[:train_idx]
-        val_graphs = graph[train_idx:]
+        val_graphs = graphs[train_idx:]
     print(
         "Num training graphs: ",
         len(train_graphs),
@@ -184,13 +184,6 @@ def train(
             assign_input = Variable(
                 data["assign_feats"].float(), requires_grad=False
             )
-            model = model.cpu()
-            if args.gpu:
-                adj = adj.cuda()
-                h0 = h0.cuda()
-                label = label.cuda()
-                assign_input = assign_input.cuda()
-                model = model.cuda()
 
             ypred, att_adj = model(h0, adj, batch_num_nodes, assign_x=assign_input)
             if batch_idx < 5:
@@ -201,7 +194,7 @@ def train(
             else:
                 loss = model.loss(ypred, label, adj, batch_num_nodes)
             loss.backward()
-            nn.utils.clip_grad_norm(model.parameters(), args.clip)
+            nn.utils.clip_grad_norm_(model.parameters(), args.clip)
             optimizer.step()
             iter += 1
             avg_loss += loss
@@ -292,12 +285,12 @@ def train_node_classifier(G, labels, model, args, writer=None):
         model.zero_grad()
 
         if args.gpu:
-            ypred, adj_att = model(x.cuda(), adj.cuda())
+            ypred, adj_att = model(x, adj)
         else:
             ypred, adj_att = model(x, adj)
         ypred_train = ypred[:, train_idx, :]
         if args.gpu:
-            loss = model.loss(ypred_train, labels_train.cuda())
+            loss = model.loss(ypred_train, labels_train)
         else:
             loss = model.loss(ypred_train, labels_train)
         loss.backward()
@@ -353,7 +346,7 @@ def train_node_classifier(G, labels, model, args, writer=None):
     # computation graph
     model.eval()
     if args.gpu:
-        ypred, _ = model(x.cuda(), adj.cuda())
+        ypred, _ = model(x, adj)
     else:
         ypred, _ = model(x, adj)
     cg_data = {
@@ -416,7 +409,7 @@ def train_node_classifier_multigraph(G_list, labels, model, args, writer=None):
         model.zero_grad()
 
         if args.gpu:
-            ypred = model(x.cuda(), adj.cuda())
+            ypred = model(x, adj)
         else:
             ypred = model(x, adj)
         # normal indexing
@@ -427,7 +420,7 @@ def train_node_classifier_multigraph(G_list, labels, model, args, writer=None):
             [ypred[i, train_idx_all[i], :] for i in range(10)], dim=0
         ).reshape(10, 146, 6)
         if args.gpu:
-            loss = model.loss(ypred_train_cmp, labels_train.cuda())
+            loss = model.loss(ypred_train_cmp, labels_train)
         else:
             loss = model.loss(ypred_train_cmp, labels_train)
         loss.backward()
@@ -478,7 +471,7 @@ def train_node_classifier_multigraph(G_list, labels, model, args, writer=None):
     # computation graph
     model.eval()
     if args.gpu:
-        ypred = model(x.cuda(), adj.cuda())
+        ypred = model(x, adj)
     else:
         ypred = model(x, adj)
     cg_data = {
@@ -510,10 +503,6 @@ def evaluate(dataset, model, args, name="Validation", max_num_examples=None):
         assign_input = Variable(
             data["assign_feats"].float(), requires_grad=False
         )
-        if args.gpu:
-            adj = adj.cuda()
-            h0 = h0.cuda()
-            assign_input = assign_input.cuda()
 
         ypred, att_adj = model(h0, adj, batch_num_nodes, assign_x=assign_input)
         _, indices = torch.max(ypred, 1)
@@ -528,7 +517,7 @@ def evaluate(dataset, model, args, name="Validation", max_num_examples=None):
 
     result = {
         "prec": metrics.precision_score(labels, preds, average="macro", zero_division=0),
-        "recall": metrics.recall_score(labels, preds, average="macro"),
+        "recall": metrics.recall_score(labels, preds, average="macro", zero_division=0),
         "acc": metrics.accuracy_score(labels, preds),
     }
     print(name, " accuracy:", result["acc"])
@@ -546,13 +535,13 @@ def evaluate_node(ypred, labels, train_idx, test_idx):
 
     result_train = {
         "prec": metrics.precision_score(labels_train, pred_train, average="macro", zero_division=0),
-        "recall": metrics.recall_score(labels_train, pred_train, average="macro"),
+        "recall": metrics.recall_score(labels_train, pred_train, average="macro", zero_division=0),
         "acc": metrics.accuracy_score(labels_train, pred_train),
         "conf_mat": metrics.confusion_matrix(labels_train, pred_train),
     }
     result_test = {
         "prec": metrics.precision_score(labels_test, pred_test, average="macro", zero_division=0),
-        "recall": metrics.recall_score(labels_test, pred_test, average="macro"),
+        "recall": metrics.recall_score(labels_test, pred_test, average="macro", zero_division=0),
         "acc": metrics.accuracy_score(labels_test, pred_test),
         "conf_mat": metrics.confusion_matrix(labels_test, pred_test),
     }
@@ -583,7 +572,7 @@ def ppi_essential_task(args, writer=None):
         print("Method: attn")
     else:
         print("Method:", args.method)
-        args.loss_weight = torch.tensor([1, 5.0], dtype=torch.float).cuda()
+        args.loss_weight = torch.tensor([1, 5.0], dtype=torch.float)
         model = models.GcnEncoderNode(
             input_dim,
             args.hidden_dim,
@@ -594,7 +583,7 @@ def ppi_essential_task(args, writer=None):
             args=args,
         )
         if args.gpu:
-            model = model.cuda()
+            model = model
 
     train_node_classifier(G, labels, model, args, writer=writer)
 
@@ -629,7 +618,7 @@ def syn_task1(args, writer=None):
             args=args,
         )
     if args.gpu:
-        model = model.cuda()
+        model = model
 
     train_node_classifier(G, labels, model, args, writer=writer)
 
@@ -654,7 +643,7 @@ def syn_task2(args, writer=None):
             args=args,
         )
         if args.gpu:
-            model = model.cuda()
+            model = model
 
     train_node_classifier(G, labels, model, args, writer=writer)
 
@@ -681,7 +670,7 @@ def syn_task3(args, writer=None):
             args=args,
         )
         if args.gpu:
-            model = model.cuda()
+            model = model
 
     train_node_classifier(G, labels, model, args, writer=writer)
 
@@ -709,7 +698,7 @@ def syn_task4(args, writer=None):
         )
 
         if args.gpu:
-            model = model.cuda()
+            model = model
 
     train_node_classifier(G, labels, model, args, writer=writer)
 
@@ -738,7 +727,7 @@ def syn_task5(args, writer=None):
         )
 
         if args.gpu:
-            model = model.cuda()
+            model = model
 
     train_node_classifier(G, labels, model, args, writer=writer)
 
@@ -773,7 +762,7 @@ def pkl_task(args, feat=None):
         args.num_classes,
         args.num_gc_layers,
         bn=args.bn,
-    ).cuda()
+    )
     train(train_dataset, model, args, test_dataset=test_dataset)
     evaluate(test_dataset, model, args, "Validation")
 
@@ -815,7 +804,7 @@ def enron_task_multigraph(args, idx=None, writer=None):
             args=args,
         )
         if args.gpu:
-            model = model.cuda()
+            model = model
         print(labels_num)
         train_node_classifier_multigraph(
             G_list, labels_list, model, args, writer=writer
@@ -871,13 +860,13 @@ def enron_task(args, idx=None, writer=None):
         print(labels_num)
 
         if args.gpu:
-            model = model.cuda()
+            model = model
         train_node_classifier(G, labels_num, model, args, writer=writer)
     else:
         print("Running Enron full task")
 
 
-def benchmark_task(args, writer=None, feat="node-feat"):
+def benchmark_task(args, writer=None, feat="node-label"):
     graphs = io_utils.read_graphfile(
         args.datadir, args.bmname, max_nodes=args.max_nodes
     )
@@ -933,8 +922,6 @@ def benchmark_task(args, writer=None, feat="node-feat"):
             dropout=args.dropout,
             args=args,
         )
-    if args.gpu:
-        model = model.cuda()
 
     train(
         train_dataset,
@@ -982,7 +969,7 @@ def benchmark_task_val(args, writer=None, feat="node-label"):
             bn=args.bn,
             dropout=args.dropout,
             args=args,
-        ).cuda()
+        )
 
         _, val_accs = train(
             train_dataset,
@@ -1042,7 +1029,7 @@ def arg_parse():
         dest="gpu",
         action="store_const",
         const=True,
-        default=False,
+        default=True,
         help="whether to use GPU.",
     )
     parser.add_argument(
@@ -1060,12 +1047,6 @@ def arg_parse():
         dest="train_ratio",
         type=float,
         help="Ratio of number of graphs training set to all graphs.",
-    )
-    parser.add_argument(
-        "--test-ratio",
-        dest="test_ratio",
-        type=float,
-        help="Ratio of number of graphs testing set to all graphs.",
     )
     parser.add_argument(
         "--num_workers",

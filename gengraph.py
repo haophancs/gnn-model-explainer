@@ -103,7 +103,7 @@ def preprocess_input_graph(G, labels, normalize_adj=False):
 # Generating synthetic graphs
 #
 ###################################
-def gen_syn1(nb_shapes=80, width_basis=300, feature_generator=None, m=5):
+def gen_syn1(nb_shapes=160, width_basis=600, feature_generator=None, m=5):
     """ Synthetic Graph #1:
 
     Start with Barabasi-Albert graph and attach house-shaped subgraphs.
@@ -252,7 +252,7 @@ def gen_syn4(nb_shapes=60, width_basis=8, feature_generator=None, m=4):
 
     path = os.path.join("log/syn4_base_h20_o20")
     writer = SummaryWriter(path)
-    # io_utils.log_graph(writer, G, "graph/full")
+    io_utils.log_graph(writer, G, "graph/full")
 
     return G, role_id, name
 

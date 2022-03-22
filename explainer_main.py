@@ -41,7 +41,7 @@ def arg_parse():
         dest="gpu",
         action="store_const",
         const=True,
-        default=False,
+        default=True,
         help="whether to use GPU.",
     )
     parser.add_argument(
@@ -146,7 +146,7 @@ def arg_parse():
         dataset="syn1",
         opt="adam",  
         opt_scheduler="none",
-        cuda="0",
+        cuda="1",
         lr=0.1,
         clip=2.0,
         batch_size=20,
@@ -220,7 +220,7 @@ def main():
     else:
         if prog_args.dataset == "ppi_essential":
             # class weight in CE loss for handling imbalanced label classes
-            prog_args.loss_weight = torch.tensor([1.0, 5.0], dtype=torch.float).cuda() 
+            prog_args.loss_weight = torch.tensor([1.0, 5.0], dtype=torch.float) 
         # Explain Node prediction
         model = models.GcnEncoderNode(
             input_dim=input_dim,
@@ -232,7 +232,7 @@ def main():
             args=prog_args,
         )
     if prog_args.gpu:
-        model = model.cuda()
+        model = model
     # load state_dict (obtained by model.state_dict() when saving checkpoint)
     model.load_state_dict(ckpt["model_state"]) 
 

@@ -62,7 +62,7 @@ def syn_task1(args, writer=None):
     model = GCNNet(args.input_dim, args.hidden_dim, num_classes, args.num_gc_layers, args=args)
     
     if args.gpu:
-        model = model.cuda()
+        model = model
 
     train_ratio = args.train_ratio
     num_train = int(train_ratio * G.number_of_nodes())

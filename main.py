@@ -49,7 +49,7 @@ blurred_cg = io_utils.preprocess_cg(blurred_cg2)
 mask = io_utils.numpy_to_torch(mask_init)
 
 if use_cuda:
-    upsample = torch.nn.UpsamplingBilinear2d(size=(224, 224)).cuda()
+    upsample = torch.nn.UpsamplingBilinear2d(size=(224, 224))
 else:
     upsample = torch.nn.UpsamplingBilinear2d(size=(224, 224))
 optimizer = torch.optim.Adam([mask], lr=learning_rate)

@@ -16,6 +16,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 import numpy as np
+import pickle
 import torch
 import networkx as nx
 import tensorboardX
@@ -80,7 +81,7 @@ def create_filename(save_dir, args, isbest=False, num_epochs=-1):
 
 def save_checkpoint(model, optimizer, args, num_epochs=-1, isbest=False, cg_dict=None):
     """Save pytorch model checkpoint.
-
+    
     Args:
         - model         : The PyTorch model to save.
         - optimizer     : The optimizer used to train the model.
@@ -127,7 +128,7 @@ def load_ckpt(args, isbest=False):
 def preprocess_cg(cg):
     """Pre-process computation graph."""
     if use_cuda:
-        preprocessed_cg_tensor = torch.from_numpy(cg).cuda()
+        preprocessed_cg_tensor = torch.from_numpy(cg)
     else:
         preprocessed_cg_tensor = torch.from_numpy(cg)
 
@@ -139,7 +140,7 @@ def load_model(path):
     model = torch.load(path)
     model.eval()
     if use_cuda:
-        model.cuda()
+        model
 
     for p in model.features.parameters():
         p.requires_grad = False
@@ -348,11 +349,13 @@ def log_graph(
     fig.axes[0].xaxis.set_visible(False)
     fig.canvas.draw()
 
-    logdir = "log" if not hasattr(args, "logdir") or not args.logdir else str(args.logdir)
-    if nodecolor != "feat":
-        name += gen_explainer_prefix(args)
-    save_path = os.path.join(logdir, name  + "_" + str(epoch) + ".pdf")
-    print(logdir + "/" + name + gen_explainer_prefix(args) + "_" + str(epoch) + ".pdf")
+    if args is None:
+        save_path = os.path.join("log/", name + ".pdf")
+    else:
+        save_path = os.path.join(
+            "log", name + gen_explainer_prefix(args) + "_" + str(epoch) + ".pdf"
+        )
+        print("log/" + name + gen_explainer_prefix(args) + "_" + str(epoch) + ".pdf")
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     plt.savefig(save_path, format="pdf")
 
@@ -361,10 +364,10 @@ def log_graph(
 
 
 def plot_cmap(cmap, ncolor):
-    """
+    """ 
     A convenient function to plot colors of a matplotlib cmap
     Credit goes to http://gvallver.perso.univ-pau.fr/?p=712
-
+ 
     Args:
         ncolor (int): number of color to show
         cmap: a cmap object or a matplotlib color name
@@ -416,7 +419,7 @@ def numpy_to_torch(img, requires_grad=True):
 
     output = torch.from_numpy(output)
     if use_cuda:
-        output = output.cuda()
+        output = output
 
     output.unsqueeze_(0)
     v = Variable(output, requires_grad=requires_grad)
@@ -458,22 +461,12 @@ def read_graphfile(datadir, dataname, max_nodes=None, edge_labels=False):
     except IOError:
         print("No node labels")
 
-    filename_node_attrs = prefix + "_node_attributes.txt"
-    node_attrs = []
+    filename_node_attrs = prefix + "_node_attributes.pkl"
     try:
-        with open(filename_node_attrs) as f:
-            for line in f:
-                line = line.strip("\s\n")
-                attrs = [
-                    float(attr) for attr in re.split("[,\s]+", line) if not attr == ""
-                ]
-                node_attrs.append(np.array(attrs))
+        with open(filename_node_attrs, 'rb') as f:
+            node_attrs = list(map(lambda row: np.array(row), pickle.load(f).tolist()))
     except IOError:
-        try:
-            filename_node_attrs = prefix + "_node_features.pkl"
-            node_attrs = [row for row in pd.read_pickle(filename_node_attrs)]
-        except IOError:
-            print("No node attributes")
+        print("No node attributes")
 
     label_has_zero = False
     filename_graphs = prefix + "_graph_labels.txt"
@@ -655,7 +648,7 @@ def build_aromaticity_dataset():
             for j in range(nb_bonds):
                 if mol.GetBondWithIdx(j).GetIsAromatic():
                     aromatic_bonds.append(j)
-                    is_aromatic = True
+                    is_aromatic = True 
             moldict['aromaticity'] = is_aromatic
             moldict['aromatic_bonds'] = aromatic_bonds
             collector.append(moldict)
@@ -666,7 +659,7 @@ def build_aromaticity_dataset():
 
 
 def gen_train_plt_name(args):
-    return "results/" + gen_prefix(args) + ".png"
+    return "results/" + io_utils.gen_prefix(args) + ".png"
 
 
 def log_assignment(assign_tensor, writer, epoch, batch_idx):
